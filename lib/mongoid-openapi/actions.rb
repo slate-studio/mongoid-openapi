@@ -4,7 +4,7 @@ module MongoidOpenApi
     extend ActiveSupport::Concern
     included do
       def index
-        @chain = resource_class
+        @chain = default_scope
 
         apply_scopes_to_chain!
         search_filter_chain!

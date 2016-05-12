@@ -4,8 +4,16 @@ module MongoidOpenApi
   module BaseHelpers
     extend ActiveSupport::Concern
     included do
+      def default_scope
+        resource_class
+      end
+
       def find_object
         resource_class.find(params[:id])
+      end
+
+      def build_object
+        resource_class.new(resource_params)
       end
 
       def get_object_version(object)
@@ -17,10 +25,6 @@ module MongoidOpenApi
           end
         end
         object
-      end
-
-      def build_object
-        resource_class.new(resource_params)
       end
 
       def apply_scopes_to_chain!
