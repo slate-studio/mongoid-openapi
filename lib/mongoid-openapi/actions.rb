@@ -28,6 +28,9 @@ module MongoidOpenApi
         if object.save
           render json: object.as_json(json_config(:create))
         else
+          if Rails.env.development?
+            logger.info "Errors:\n  #{object.errors.to_h}"
+          end
           render json: object.errors, status: :unprocessable_entity
         end
       end
@@ -37,6 +40,9 @@ module MongoidOpenApi
         if object.update_attributes(resource_params)
           render json: object.as_json(json_config(:update))
         else
+          if Rails.env.development?
+            logger.info "Errors:\n  #{object.errors.to_h}"
+          end
           render json: object.errors, status: :unprocessable_entity
         end
       end
@@ -46,6 +52,9 @@ module MongoidOpenApi
         if object.destroy
           render nothing: true, status: 204
         else
+          if Rails.env.development?
+            logger.info "Errors:\n  #{object.errors.to_h}"
+          end
           render json: object.errors, status: :unprocessable_entity
         end
       end
