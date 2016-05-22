@@ -21,7 +21,7 @@ module SwaggerGenerator
       generate_swagger_paths
     end
 
-    def fetch_available_actions
+    def fetch_mounted_actions
       controller = to_s.underscore.gsub('::', '/').gsub('_controller','')
       # Code From rake routes
       all_routes = Rails.application.routes.routes
@@ -70,7 +70,8 @@ module SwaggerGenerator
         end
       end
 
-      # For Input as Param in UI
+      # Using in operation: post as example for input
+      # https://github.com/fotinakis/swagger-blocks#petscontroller
       swagger_schema "#{resource_class}Input" do
         allOf do
           schema do
@@ -92,7 +93,7 @@ module SwaggerGenerator
       plural  = collection_name
       path    = plural.underscore
       tags    = [ plural ]
-      actions = fetch_available_actions
+      actions = fetch_mounted_actions
 
       if actions.include?('index') || actions.include?('create')
         swagger_path "/#{ path }" do
