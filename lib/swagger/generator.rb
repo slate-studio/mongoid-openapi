@@ -288,8 +288,8 @@ module SwaggerGenerator
       custom_routes.each do |route|
         path = route[:path].gsub(base_path, '')
         if path.include?(':id')
-          path = path.gsub(':id', '')
-          swagger_path "#{ path }{id}" do
+          path = path.gsub(':id', '{id}')
+          swagger_path "#{ path }" do
             operation route[:method] do
               key :tags, [ plural ]
               key :summary, 'Custom method, Please Overwrite this Method Manually'
