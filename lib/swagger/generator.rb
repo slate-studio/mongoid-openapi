@@ -10,6 +10,11 @@ module SwaggerGenerator
 
   included do
     include Swagger::Blocks
+    class_attribute :swagger_base_path
+    class_attribute :swagger_collection_name
+    class_attribute :swagger_relative_path
+    class_attribute :swagger_ignore_custom_actions
+    class_attribute :swagger_resource_class_name
   end
 
   class_methods do
@@ -17,6 +22,14 @@ module SwaggerGenerator
     # Available property/model fields types in Swagger:
     # http://files.slatestudio.com/gG30
     ALLOW_TYPES  = %w(Object String Integer Array Date Mongoid::Boolean Symbol)
+
+    def swagger_options(options)
+      self.swagger_base_path             = options[:base_path]
+      self.swagger_collection_name       = options[:collection_name]
+      self.swagger_relative_path         = options[:relative_path]
+      self.swagger_ignore_custom_actions = options[:ignore_custom_actions]
+      self.swagger_resource_class_name   = options[:resource_class_name]
+    end
 
     def generate_swagger
       generate_swagger_schemas
@@ -68,17 +81,12 @@ module SwaggerGenerator
       required_fields
     end
 
-    def generate_swagger_schemas(name=false)
-      name ||= resource_name
-
-      if resource_class
-        # TODO: add support for resource class option
-      else
-        resource_class = name.constantize
-      end
+    def generate_swagger_schemas
+      self.swagger_resource_class_name ||= resource_name
+      resource_class = swagger_resource_class_name.constantize
       required_fields = fetch_required_fields(resource_class)
 
-      swagger_schema name do
+      swagger_schema swagger_resource_class_name do
         key :required, required_fields
         resource_class.fields.each do |name, options|
           type = options.type.to_s
@@ -86,6 +94,7 @@ module SwaggerGenerator
             unless REJECT_NAMES.include? name
               defaul_value = options.options[:default]
               property name do
+                # TODO: describe type :file
                 case type
                 when 'Symbol'
                   klass = options.options[:klass].to_s
@@ -136,11 +145,17 @@ module SwaggerGenerator
 
     end
 
-    def generate_swagger_paths(base_path=false, hide_custom_paths=false)
-      name    = resource_name
-      plural  = collection_name
-      path    = plural.underscore
-      tags    = [ plural ]
+    def generate_swagger_paths
+      self.swagger_ignore_custom_actions ||= false
+      self.swagger_base_path             ||= ''
+      self.swagger_relative_path         ||= collection_name.underscore
+      self.swagger_resource_class_name   ||= resource_name
+      self.swagger_collection_name       ||= collection_name
+
+      path   = swagger_relative_path
+      name   = swagger_resource_class_name
+      plural = swagger_collection_name
+      tags   = [ plural ]
       actions, custom_routes = fetch_mounted_routes
 
       if actions.include?('index') || actions.include?('create')
@@ -276,24 +291,24 @@ module SwaggerGenerator
           end
         end
       end
-      if !hide_custom_paths
-        generate_swagger_custom_paths(custom_routes, base_path)
+      unless swagger_ignore_custom_actions
+        generate_swagger_custom_paths(custom_routes)
       end
     end
 
-    def generate_swagger_custom_paths(custom_routes, base_path)
-      name   = resource_name
-      plural = collection_name
+    def generate_swagger_custom_paths(custom_routes)
+      name   = swagger_resource_class_name || resource_name
+      plural = swagger_collection_name || collection_name
+      tags   = [ plural ]
 
       custom_routes.each do |route|
-        path = route[:path].gsub(base_path, '')
+        path = route[:path].gsub(swagger_base_path, '')
         if path.include?(':id')
           path = path.gsub(':id', '{id}')
           swagger_path "#{ path }" do
             operation route[:method] do
-              key :tags, [ plural ]
-              key :summary, 'Custom method, Please Overwrite this Method Manually'
-              key :description, 'Dont describe reqired fields and response'
+              key :tags, tags
+              key :summary, 'Default action schema is used, custom Swagger description is required.'
               key :operationId, "#{ route[:action] }#{ name }ById"
               key :produces,    %w(application/json)
               parameter do
@@ -312,9 +327,8 @@ module SwaggerGenerator
         else
           swagger_path "#{ path }" do
             operation route[:method] do
-              key :tags, [ plural ]
-              key :summary, 'Custom method, Please Overwrite this Method Manually'
-              key :description, 'Dont describe reqired fields and response'
+              key :tags, tags
+              key :summary, 'Default action schema is used, custom Swagger description is required.'
               key :operationId, "#{ route[:action] }#{ name }ById"
               key :produces,    %w(application/json)
               response 200 do
