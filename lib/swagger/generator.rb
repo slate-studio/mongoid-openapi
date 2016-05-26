@@ -163,6 +163,7 @@ module SwaggerGenerator
           if actions.include?('index')
             operation :get do
               key :tags, tags
+              key :summary, "Index"
               key :operationId, "index#{ plural }"
               key :produces, %w(application/json text/csv)
 
@@ -202,6 +203,7 @@ module SwaggerGenerator
           if actions.include?('create')
             operation :post do
               key :tags, tags
+              key :summary, "Create"
               key :operationId, "create#{ plural }"
               key :produces,    %w(application/json)
               parameter do
@@ -231,6 +233,7 @@ module SwaggerGenerator
           if actions.include?('show')
             operation :get do
               key :tags, tags
+              key :summary, "Show"
               key :operationId, "show#{ name }ById"
               key :produces,    %w(application/json)
               parameter do
@@ -250,6 +253,7 @@ module SwaggerGenerator
           if actions.include?('update')
             operation :put do
               key :tags, tags
+              key :summary, "Update"
               key :operationId, "update#{ name }"
               key :produces,    %w(application/json)
               parameter do
@@ -277,6 +281,7 @@ module SwaggerGenerator
           if actions.include?('destroy')
             operation :delete do
               key :tags, tags
+              key :summary, "Destroy"
               key :operationId, "delete#{ name }"
               parameter do
                 key :name,     :id
