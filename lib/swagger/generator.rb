@@ -18,10 +18,10 @@ module SwaggerGenerator
   end
 
   class_methods do
-    REJECT_NAMES = %w(_id _keywords created_at updated_at).freeze
+    REJECT_NAMES = %w().freeze
     # Available property/model fields types in Swagger:
     # http://files.slatestudio.com/gG30
-    ALLOW_TYPES  = %w(Object String Integer Array Date Mongoid::Boolean Symbol)
+    ALLOW_TYPES  = %w(Object BSON::ObjectId Time String Integer Array Date Mongoid::Boolean Symbol)
 
     def swagger_options(options)
       self.swagger_base_path             = options[:base_path]
@@ -78,6 +78,7 @@ module SwaggerGenerator
         validators
         .select { |v| v.class == Mongoid::Validatable::PresenceValidator }
       required_fields = presence_validators.map { |v| v.attributes.first }
+      required_fields << '_id'
       required_fields
     end
 
@@ -109,9 +110,15 @@ module SwaggerGenerator
                   items do
                     key :type, :string
                   end
+                when 'BSON::ObjectId'
+                  key :type, :string
+                  key :format, :uuid
                 when 'Date'
                   key :type, :string
                   key :format, :date
+                when 'Time'
+                  key :type, :string
+                  key :format, 'date-time'
                 when 'Mongoid::Boolean'
                   key :type, :boolean
                   key :default, defaul_value
