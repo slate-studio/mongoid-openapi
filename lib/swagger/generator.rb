@@ -215,7 +215,6 @@ module SwaggerGenerator
               key :produces,    %w(application/json)
               parameter do
                 key :name,     name.underscore.to_sym
-                # key :in,       :form
                 key :in,       :body
                 key :required, true
                 schema do
@@ -271,7 +270,7 @@ module SwaggerGenerator
               end
               parameter do
                 key :name,     name.underscore.to_sym
-                key :in,       :form
+                key :in,       :body
                 key :required, true
                 schema do
                   key :'$ref', name # input
