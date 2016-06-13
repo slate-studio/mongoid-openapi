@@ -15,6 +15,7 @@ module SwaggerGenerator
     class_attribute :swagger_relative_path
     class_attribute :swagger_ignore_custom_actions
     class_attribute :swagger_resource_class_name
+    class_attribute :swagger_scopes
   end
 
   class_methods do
@@ -29,6 +30,7 @@ module SwaggerGenerator
       self.swagger_relative_path         = options[:relative_path]
       self.swagger_ignore_custom_actions = options[:ignore_custom_actions]
       self.swagger_resource_class_name   = options[:resource_class_name]
+      self.swagger_scopes                = options[:scopes]
     end
 
     def generate_swagger
@@ -158,10 +160,12 @@ module SwaggerGenerator
       self.swagger_relative_path         ||= collection_name.underscore
       self.swagger_resource_class_name   ||= resource_name
       self.swagger_collection_name       ||= collection_name
+      self.swagger_scopes                ||= nil
 
       path   = swagger_relative_path
       name   = swagger_resource_class_name
       plural = swagger_collection_name
+      scopes = swagger_scopes
       tags   = [ plural ]
       actions, custom_routes = fetch_mounted_routes
 
@@ -173,6 +177,19 @@ module SwaggerGenerator
               key :summary, "Index"
               key :operationId, "index#{ plural }"
               key :produces, %w(application/json text/csv)
+
+              if scopes && scopes.size > 0
+                scopes.each do |scope|
+                  scope_type = scope[:type] || :string
+                  parameter do
+                    key :name,     scope[:name]
+                    key :in,       :query
+                    key :required, false
+                    key :type,     scope_type
+                    key :format,   :int32
+                  end
+                end
+              end
 
               parameter do
                 key :name,     :page
