@@ -19,7 +19,7 @@ module SwaggerGenerator
   end
 
   class_methods do
-    REJECT_NAMES = %w().freeze
+    REJECT_NAMES = %w(_id).freeze
     # Available property/model fields types in Swagger:
     # http://files.slatestudio.com/gG30
     ALLOW_TYPES  = %w(Object BSON::ObjectId Time String Integer Array Date Mongoid::Boolean Symbol)
@@ -94,43 +94,41 @@ module SwaggerGenerator
         resource_class.fields.each do |name, options|
           type = options.type.to_s
           if ALLOW_TYPES.include? type
-            unless REJECT_NAMES.include? name
-              defaul_value = options.options[:default]
-              property name do
-                # TODO: describe type :file
-                case type
-                when 'Symbol'
-                  klass = options.options[:klass].to_s
-                  constant = name.sub('_', '').upcase
-                  values = "#{klass}::#{constant}"
-                  values = values.constantize
+            defaul_value = options.options[:default]
+            property name do
+              # TODO: describe type :file
+              case type
+              when 'Symbol'
+                klass = options.options[:klass].to_s
+                constant = name.sub('_', '').upcase
+                values = "#{klass}::#{constant}"
+                values = values.constantize
+                key :type, :string
+                key :enum, values
+              when 'Array'
+                key :type, :array
+                # TODO: autodetect type of Array Item
+                items do
                   key :type, :string
-                  key :enum, values
-                when 'Array'
-                  key :type, :array
-                  # TODO: autodetect type of Array Item
-                  items do
-                    key :type, :string
-                  end
-                when 'BSON::ObjectId'
-                  key :type, :string
-                  key :format, :uuid
-                when 'Date'
-                  key :type, :string
-                  key :format, :date
-                when 'Time'
-                  key :type, :string
-                  key :format, 'date-time'
-                when 'Mongoid::Boolean'
-                  key :type, :boolean
-                  key :default, defaul_value
-                when 'Integer'
-                  key :type, :integer
-                  key :default, defaul_value.to_i
-                else
-                  key :type, :string
-                  key :default, defaul_value.to_s
                 end
+              when 'BSON::ObjectId'
+                key :type, :string
+                key :format, :uuid
+              when 'Date'
+                key :type, :string
+                key :format, :date
+              when 'Time'
+                key :type, :string
+                key :format, 'date-time'
+              when 'Mongoid::Boolean'
+                key :type, :boolean
+                key :default, defaul_value
+              when 'Integer'
+                key :type, :integer
+                key :default, defaul_value.to_i
+              else
+                key :type, :string
+                key :default, defaul_value.to_s
               end
             end
           end
@@ -138,20 +136,55 @@ module SwaggerGenerator
       end
 
       # Using in operation: post as example for input
-      # https://github.com/fotinakis/swagger-blocks#petscontroller
+      # Put only reqired fields for creating object
       swagger_schema "#{resource_class}Input" do
-        allOf do
-          schema do
-            key :'$ref', resource_class
-          end
-          schema do
-            property :id do
-              key :type, :string
+        key :required, required_fields
+        input_fields = required_fields.map { |r_f| r_f.to_s }
+        resource_class.fields.each do |name, options|
+          type = options.type.to_s
+          if ALLOW_TYPES.include? type
+            unless REJECT_NAMES.include? name
+              if input_fields.include? name
+                defaul_value = options.options[:default]
+                property name do
+                  case type
+                  when 'Symbol'
+                    klass = options.options[:klass].to_s
+                    constant = name.sub('_', '').upcase
+                    values = "#{klass}::#{constant}"
+                    values = values.constantize
+                    key :type, :string
+                    key :enum, values
+                  when 'Array'
+                    key :type, :array
+                    items do
+                      key :type, :string
+                    end
+                  when 'BSON::ObjectId'
+                    key :type, :string
+                    key :format, :uuid
+                  when 'Date'
+                    key :type, :string
+                    key :format, :date
+                  when 'Time'
+                    key :type, :string
+                    key :format, 'date-time'
+                  when 'Mongoid::Boolean'
+                    key :type, :boolean
+                    key :default, defaul_value
+                  when 'Integer'
+                    key :type, :integer
+                    key :default, defaul_value.to_i
+                  else
+                    key :type, :string
+                    key :default, defaul_value.to_s
+                  end
+                end
+              end
             end
           end
         end
       end
-
     end
 
     def generate_swagger_paths
