@@ -15,13 +15,14 @@ module SwaggerGenerator
     class_attribute :swagger_relative_path
     class_attribute :swagger_ignore_custom_actions
     class_attribute :swagger_resource_class_name
+    class_attribute :swagger_scopes
   end
 
   class_methods do
-    REJECT_NAMES = %w(_id _keywords created_at updated_at).freeze
+    REJECT_NAMES = %w(_id).freeze
     # Available property/model fields types in Swagger:
     # http://files.slatestudio.com/gG30
-    ALLOW_TYPES  = %w(Object String Integer Array Date Mongoid::Boolean Symbol)
+    ALLOW_TYPES  = %w(Object BSON::ObjectId Time String Integer Array Date Mongoid::Boolean Symbol)
 
     def swagger_options(options)
       self.swagger_base_path             = options[:base_path]
@@ -29,6 +30,7 @@ module SwaggerGenerator
       self.swagger_relative_path         = options[:relative_path]
       self.swagger_ignore_custom_actions = options[:ignore_custom_actions]
       self.swagger_resource_class_name   = options[:resource_class_name]
+      self.swagger_scopes                = options[:scopes]
     end
 
     def generate_swagger
@@ -78,6 +80,7 @@ module SwaggerGenerator
         validators
         .select { |v| v.class == Mongoid::Validatable::PresenceValidator }
       required_fields = presence_validators.map { |v| v.attributes.first }
+      required_fields << '_id'
       required_fields
     end
 
@@ -91,37 +94,41 @@ module SwaggerGenerator
         resource_class.fields.each do |name, options|
           type = options.type.to_s
           if ALLOW_TYPES.include? type
-            unless REJECT_NAMES.include? name
-              defaul_value = options.options[:default]
-              property name do
-                # TODO: describe type :file
-                case type
-                when 'Symbol'
-                  klass = options.options[:klass].to_s
-                  constant = name.sub('_', '').upcase
-                  values = "#{klass}::#{constant}"
-                  values = values.constantize
+            defaul_value = options.options[:default]
+            property name do
+              # TODO: describe type :file
+              case type
+              when 'Symbol'
+                klass = options.options[:klass].to_s
+                constant = name.sub('_', '').upcase
+                values = "#{klass}::#{constant}"
+                values = values.constantize
+                key :type, :string
+                key :enum, values
+              when 'Array'
+                key :type, :array
+                # TODO: autodetect type of Array Item
+                items do
                   key :type, :string
-                  key :enum, values
-                when 'Array'
-                  key :type, :array
-                  # TODO: autodetect type of Array Item
-                  items do
-                    key :type, :string
-                  end
-                when 'Date'
-                  key :type, :string
-                  key :format, :date
-                when 'Mongoid::Boolean'
-                  key :type, :boolean
-                  key :default, defaul_value
-                when 'Integer'
-                  key :type, :integer
-                  key :default, defaul_value.to_i
-                else
-                  key :type, :string
-                  key :default, defaul_value.to_s
                 end
+              when 'BSON::ObjectId'
+                key :type, :string
+                key :format, :uuid
+              when 'Date'
+                key :type, :string
+                key :format, :date
+              when 'Time'
+                key :type, :string
+                key :format, 'date-time'
+              when 'Mongoid::Boolean'
+                key :type, :boolean
+                key :default, defaul_value
+              when 'Integer'
+                key :type, :integer
+                key :default, defaul_value.to_i
+              else
+                key :type, :string
+                key :default, defaul_value.to_s
               end
             end
           end
@@ -129,20 +136,55 @@ module SwaggerGenerator
       end
 
       # Using in operation: post as example for input
-      # https://github.com/fotinakis/swagger-blocks#petscontroller
+      # Put only reqired fields for creating object
       swagger_schema "#{resource_class}Input" do
-        allOf do
-          schema do
-            key :'$ref', resource_class
-          end
-          schema do
-            property :id do
-              key :type, :string
+        key :required, required_fields
+        input_fields = required_fields.map { |r_f| r_f.to_s }
+        resource_class.fields.each do |name, options|
+          type = options.type.to_s
+          if ALLOW_TYPES.include? type
+            unless REJECT_NAMES.include? name
+              if input_fields.include? name
+                defaul_value = options.options[:default]
+                property name do
+                  case type
+                  when 'Symbol'
+                    klass = options.options[:klass].to_s
+                    constant = name.sub('_', '').upcase
+                    values = "#{klass}::#{constant}"
+                    values = values.constantize
+                    key :type, :string
+                    key :enum, values
+                  when 'Array'
+                    key :type, :array
+                    items do
+                      key :type, :string
+                    end
+                  when 'BSON::ObjectId'
+                    key :type, :string
+                    key :format, :uuid
+                  when 'Date'
+                    key :type, :string
+                    key :format, :date
+                  when 'Time'
+                    key :type, :string
+                    key :format, 'date-time'
+                  when 'Mongoid::Boolean'
+                    key :type, :boolean
+                    key :default, defaul_value
+                  when 'Integer'
+                    key :type, :integer
+                    key :default, defaul_value.to_i
+                  else
+                    key :type, :string
+                    key :default, defaul_value.to_s
+                  end
+                end
+              end
             end
           end
         end
       end
-
     end
 
     def generate_swagger_paths
@@ -151,10 +193,12 @@ module SwaggerGenerator
       self.swagger_relative_path         ||= collection_name.underscore
       self.swagger_resource_class_name   ||= resource_name
       self.swagger_collection_name       ||= collection_name
+      self.swagger_scopes                ||= nil
 
       path   = swagger_relative_path
       name   = swagger_resource_class_name
       plural = swagger_collection_name
+      scopes = swagger_scopes
       tags   = [ plural ]
       actions, custom_routes = fetch_mounted_routes
 
@@ -166,6 +210,19 @@ module SwaggerGenerator
               key :summary, "Index"
               key :operationId, "index#{ plural }"
               key :produces, %w(application/json text/csv)
+
+              if scopes && scopes.size > 0
+                scopes.each do |scope|
+                  scope_type = scope[:type] || :string
+                  parameter do
+                    key :name,     scope[:name]
+                    key :in,       :query
+                    key :required, false
+                    key :type,     scope_type
+                    key :format,   :int32
+                  end
+                end
+              end
 
               parameter do
                 key :name,     :page
@@ -208,7 +265,6 @@ module SwaggerGenerator
               key :produces,    %w(application/json)
               parameter do
                 key :name,     name.underscore.to_sym
-                # key :in,       :form
                 key :in,       :body
                 key :required, true
                 schema do
@@ -264,7 +320,7 @@ module SwaggerGenerator
               end
               parameter do
                 key :name,     name.underscore.to_sym
-                key :in,       :form
+                key :in,       :body
                 key :required, true
                 schema do
                   key :'$ref', name # input
