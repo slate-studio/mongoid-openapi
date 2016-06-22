@@ -50,7 +50,7 @@ module MongoidOpenApi
       def destroy
         @object = find_object
         if @object.destroy
-          render nothing: true, status: 204
+          render nothing: true, status: :no_content
         else
           if Rails.env.development?
             logger.info "Errors:\n  #{@object.errors.to_h}"
