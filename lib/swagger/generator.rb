@@ -16,6 +16,7 @@ module SwaggerGenerator
     class_attribute :swagger_ignore_custom_actions
     class_attribute :swagger_resource_class_name
     class_attribute :swagger_scopes
+    class_attribute :swagger_json_requests
   end
 
   class_methods do
@@ -31,6 +32,7 @@ module SwaggerGenerator
       self.swagger_ignore_custom_actions = options[:ignore_custom_actions]
       self.swagger_resource_class_name   = options[:resource_class_name]
       self.swagger_scopes                = options[:scopes]
+      self.swagger_json_requests         = options[:json_requests]
     end
 
     def generate_swagger
@@ -189,6 +191,7 @@ module SwaggerGenerator
 
     def generate_swagger_paths
       self.swagger_ignore_custom_actions ||= false
+      self.swagger_json_requests         ||= false
       self.swagger_base_path             ||= ''
       self.swagger_relative_path         ||= collection_name.underscore
       self.swagger_resource_class_name   ||= resource_name
@@ -197,10 +200,15 @@ module SwaggerGenerator
 
       path   = swagger_relative_path
       name   = swagger_resource_class_name
+      json   = swagger_json_requests
       plural = swagger_collection_name
       scopes = swagger_scopes
       tags   = [ plural ]
       actions, custom_routes = fetch_mounted_routes
+
+      if json
+        path = "#{path}.json"
+      end
 
       if actions.include?('index') || actions.include?('create')
         swagger_path "/#{ path }" do
@@ -281,11 +289,17 @@ module SwaggerGenerator
         end
       end
 
+      path = swagger_relative_path
+      path = "#{path}/{id}"
+      if json
+        path = "#{path}.json"
+      end
+
       if actions.include?('show') ||
         actions.include?('update') ||
         actions.include?('destroy')
 
-        swagger_path "/#{ path }/{id}" do
+        swagger_path "/#{ path }" do
           if actions.include?('show')
             operation :get do
               key :tags, tags
