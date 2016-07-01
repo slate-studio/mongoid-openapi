@@ -90,6 +90,7 @@ module SwaggerGenerator
       self.swagger_resource_class_name ||= resource_name
       resource_class = swagger_resource_class_name.constantize
       required_fields = fetch_required_fields(resource_class)
+      class_name = swagger_resource_class_name.underscore.to_sym
 
       swagger_schema swagger_resource_class_name do
         key :required, required_fields
@@ -140,46 +141,48 @@ module SwaggerGenerator
       # Using in operation: post as example for input
       # Put only reqired fields for creating object
       swagger_schema "#{resource_class}Input" do
-        key :required, required_fields
-        input_fields = required_fields.map { |r_f| r_f.to_s }
-        resource_class.fields.each do |name, options|
-          type = options.type.to_s
-          if ALLOW_TYPES.include? type
-            unless REJECT_NAMES.include? name
-              if input_fields.include? name
-                defaul_value = options.options[:default]
-                property name do
-                  case type
-                  when 'Symbol'
-                    klass = options.options[:klass].to_s
-                    constant = name.sub('_', '').upcase
-                    values = "#{klass}::#{constant}"
-                    values = values.constantize
-                    key :type, :string
-                    key :enum, values
-                  when 'Array'
-                    key :type, :array
-                    items do
+        property class_name, type: :object do
+          key :required, required_fields
+          input_fields = required_fields.map { |r_f| r_f.to_s }
+          resource_class.fields.each do |name, options|
+            type = options.type.to_s
+            if ALLOW_TYPES.include? type
+              unless REJECT_NAMES.include? name
+                if input_fields.include? name
+                  defaul_value = options.options[:default]
+                  property name do
+                    case type
+                    when 'Symbol'
+                      klass = options.options[:klass].to_s
+                      constant = name.sub('_', '').upcase
+                      values = "#{klass}::#{constant}"
+                      values = values.constantize
                       key :type, :string
+                      key :enum, values
+                    when 'Array'
+                      key :type, :array
+                      items do
+                        key :type, :string
+                      end
+                    when 'BSON::ObjectId'
+                      key :type, :string
+                      key :format, :uuid
+                    when 'Date'
+                      key :type, :string
+                      key :format, :date
+                    when 'Time'
+                      key :type, :string
+                      key :format, 'date-time'
+                    when 'Mongoid::Boolean'
+                      key :type, :boolean
+                      key :default, defaul_value
+                    when 'Integer'
+                      key :type, :integer
+                      key :default, defaul_value.to_i
+                    else
+                      key :type, :string
+                      key :default, defaul_value.to_s
                     end
-                  when 'BSON::ObjectId'
-                    key :type, :string
-                    key :format, :uuid
-                  when 'Date'
-                    key :type, :string
-                    key :format, :date
-                  when 'Time'
-                    key :type, :string
-                    key :format, 'date-time'
-                  when 'Mongoid::Boolean'
-                    key :type, :boolean
-                    key :default, defaul_value
-                  when 'Integer'
-                    key :type, :integer
-                    key :default, defaul_value.to_i
-                  else
-                    key :type, :string
-                    key :default, defaul_value.to_s
                   end
                 end
               end
@@ -272,7 +275,7 @@ module SwaggerGenerator
               key :operationId, "create#{ plural }"
               key :produces,    %w(application/json)
               parameter do
-                key :name,     name.underscore.to_sym
+                key :name,     "body{#{name.underscore.to_sym}}"
                 key :in,       :body
                 key :required, true
                 schema do
@@ -333,11 +336,11 @@ module SwaggerGenerator
                 key :type,     :string
               end
               parameter do
-                key :name,     name.underscore.to_sym
+                key :name,     "body{#{name.underscore.to_sym}}"
                 key :in,       :body
                 key :required, true
                 schema do
-                  key :'$ref', name # input
+                  key :'$ref', "#{name}Input"
                 end
               end
               response 200 do
