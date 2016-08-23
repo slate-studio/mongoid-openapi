@@ -20,6 +20,8 @@ Gem::Specification.new do |s|
 
   # Ruby ODM framework for MongoDB
   s.add_dependency 'mongoid'
+  # A set of Rails responders to dry up your application
+  s.add_dependency 'responders', '~> 2.3'
   # Clean, powerful, customizable and sophisticated paginator
   s.add_dependency 'kaminari'
   # DSL for pure Ruby code blocks that can be turned into JSON

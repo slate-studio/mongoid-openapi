@@ -23,6 +23,7 @@
 #  - https://github.com/jamesgolick/resource_controller
 # =============================================================================
 
+require 'responders'
 require 'kaminari'
 require 'csv'
 require 'action_controller/metal/renderers'
