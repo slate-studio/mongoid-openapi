@@ -19,7 +19,7 @@ Gem::Specification.new do |s|
   s.platform         = Gem::Platform::RUBY
 
   # Ruby ODM framework for MongoDB
-  s.add_dependency 'mongoid', '~> 5.0'
+  s.add_dependency 'mongoid'
   # Clean, powerful, customizable and sophisticated paginator
   s.add_dependency 'kaminari'
   # DSL for pure Ruby code blocks that can be turned into JSON

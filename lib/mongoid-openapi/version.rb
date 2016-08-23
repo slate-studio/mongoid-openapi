@@ -1,3 +1,3 @@
 module MongoidOpenApi
-  VERSION = '0.1.15'.freeze
+  VERSION = '0.2.0'.freeze
 end
